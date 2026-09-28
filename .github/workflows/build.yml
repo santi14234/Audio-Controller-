@@ -1,0 +1,83 @@
+name: Build APK J2 Core
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Crear proyecto limpio
+        run: |
+          rm -rf app build.gradle settings.gradle gradle.properties gradlew gradle
+          mkdir -p app/src/main/java/com/fxsound/lite
+          echo "include ':app'" > settings.gradle
+          echo "buildscript { repositories { google(); mavenCentral() } dependencies { classpath 'com.android.tools.build:gradle:8.2.2' } } allprojects { repositories { google(); mavenCentral() } }" > build.gradle
+          echo "android.useAndroidX=true" > gradle.properties
+          cat > app/build.gradle << 'EOF'
+          apply plugin: 'com.android.application'
+          android {
+              namespace 'com.fxsound.lite'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.fxsound.lite"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
+          EOF
+          mkdir -p app/src/main
+          echo '<?xml version="1.0" encoding="utf-8"?><manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="FxSound" android:theme="@android:style/Theme.Material.Light"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
+          cat > app/src/main/java/com/fxsound/lite/MainActivity.java << 'EOF'
+          package com.fxsound.lite;
+          import android.os.Bundle;
+          import android.widget.LinearLayout;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import androidx.appcompat.app.AppCompatActivity;
+          public class MainActivity extends AppCompatActivity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  LinearLayout l = new LinearLayout(this);
+                  l.setOrientation(LinearLayout.VERTICAL);
+                  l.setPadding(30,100,30,30);
+                  TextView t = new TextView(this);
+                  t.setText("FxSound Lite - 3 Bandas OK");
+                  t.setTextSize(22);
+                  l.addView(t);
+                  for(String s: new String[]{"Graves","Medios","Agudos"}){
+                      TextView tv = new TextView(this); tv.setText(s); l.addView(tv);
+                      SeekBar sb = new SeekBar(this); sb.setMax(100); sb.setProgress(50); l.addView(sb);
+                  }
+                  setContentView(l);
+              }
+          }
+          EOF
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.5
+
+      - name: Compilar APK
+        run: gradle assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: APK-3Bandas-FINAL
+          path: app/build/outputs/apk/debug/app-debug.apk
